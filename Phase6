@@ -1,0 +1,105 @@
+Awesome. Welcome to Phase 6: Alert System via SMS and Email (Twilio + SMTP)
+
+Goal: Whenever a health anomaly is detected by the model, send a real-time alert to the farmer via:
+
+SMS using Twilio
+
+Email using SMTP (Gmail)
+
+
+Step-by-Step Setup
+
+Step 1: Prepare Alert Credentials
+
+1. For Email Alerts (Gmail)
+
+
+
+Enable 2-Step Verification on your Gmail account
+
+Create an App Password: https://myaccount.google.com/apppasswords
+
+Save the 16-character password
+
+
+2. For Twilio SMS (Free or paid)
+
+
+
+Create a Twilio account at https://www.twilio.com/
+
+Get:
+
+ACCOUNT SID
+
+AUTH TOKEN
+
+Twilio phone number (e.g., +1XXX...)
+
+
+
+Step 2: Create alerts.py in backend/app/
+
+backend/app/alerts.py
+
+import smtplib from email.mime.text import MIMEText from twilio.rest import Client import os
+
+EMAIL_ADDRESS = os.getenv("EMAIL_ADDRESS") EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
+
+TWILIO_SID = os.getenv("TWILIO_SID") TWILIO_TOKEN = os.getenv("TWILIO_TOKEN") TWILIO_PHONE = os.getenv("TWILIO_PHONE") FARMER_PHONE = os.getenv("FARMER_PHONE") FARMER_EMAIL = os.getenv("FARMER_EMAIL")
+
+def send_sms_alert(message): try: client = Client(TWILIO_SID, TWILIO_TOKEN) client.messages.create( body=message, from_=TWILIO_PHONE, to=FARMER_PHONE ) except Exception as e: print(f"[SMS Alert Error] {e}")
+
+def send_email_alert(subject, message): try: msg = MIMEText(message) msg["Subject"] = subject msg["From"] = EMAIL_ADDRESS msg["To"] = FARMER_EMAIL
+
+server = smtplib.SMTP("smtp.gmail.com", 587)
+    server.starttls()
+    server.login(EMAIL_ADDRESS, EMAIL_PASSWORD)
+    server.send_message(msg)
+    server.quit()
+except Exception as e:
+    print(f"[Email Alert Error] {e}")
+
+Step 3: Add Environment Variables
+
+Create a .env file in backend/
+
+EMAIL_ADDRESS=yourgmail@gmail.com EMAIL_PASSWORD=your_app_password TWILIO_SID=ACxxxxxxxxxxxxxxxxxxxx TWILIO_TOKEN=xxxxxxxxxxxxxxxx TWILIO_PHONE=+1XXX... FARMER_PHONE=+91xxxxxxxxxx FARMER_EMAIL=farmer@gmail.com
+
+Install dotenv in backend
+
+pip install python-dotenv
+
+In backend/init.py, load the .env file:
+
+from dotenv import load_dotenv load_dotenv()
+
+Step 4: Trigger Alerts on Anomaly
+
+In backend/app/routes.py (inside /send-data route):
+
+from app.alerts import send_sms_alert, send_email_alert
+
+Inside the "if status == 'anomaly':" block
+
+alert_message = f"ALERT: {cattle_id} is showing abnormal health data!\nTemp: {temperature}°C, HR: {heart_rate}, Activity: {activity}" send_sms_alert(alert_message) send_email_alert(subject="CattleGuard Alert!", message=alert_message)
+
+Step 5: Restart Flask Backend
+
+If you're running via Docker:
+
+docker compose down docker compose up --build
+
+Or restart your python app manually.
+
+Step 6: Test
+
+Let your simulator run until it sends abnormal data (use high temp or low activity). You should receive both SMS and Email alert messages like:
+
+ALERT: COW001 is showing abnormal health data!
+Temp: 39.4°C, HR: 85, Activity: 0.19
+
+Next Phase → Phase 7: Mobile App (Offline-Capable with Search & GPS)
+
+Ready? Reply: Start Phase 7.
+
