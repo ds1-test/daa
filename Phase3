@@ -1,0 +1,86 @@
+Excellent. Welcome to Phase 3: AI Model – Training + TensorFlow Lite Conversion
+
+In this phase, we’ll:
+
+Simulate normal cattle data
+
+Train an anomaly detection model (Autoencoder)
+
+Evaluate it
+
+Convert it to TensorFlow Lite (.tflite)
+
+Place it into the backend for live inference
+
+
+STEP 1: Create Folder Structure
+
+In your /ai-models directory, create:
+
+ai-models/ ├── train_autoencoder.py ├── simulate_data.py ├── cattle_model.tflite ├── cattle_model.h5 ├── requirements.txt
+
+STEP 2: Simulate Normal Cattle Health Data
+
+File: simulate_data.py
+
+import numpy as np import pandas as pd
+
+def generate_data(n=1000): data = { "temperature": np.random.normal(loc=38.5, scale=0.3, size=n), "heart_rate": np.random.normal(loc=70, scale=5, size=n), "activity": np.random.normal(loc=0.7, scale=0.1, size=n), } df = pd.DataFrame(data) df.to_csv("normal_data.csv", index=False) print(f"Generated {n} samples of normal cattle data.")
+
+if name == "main": generate_data()
+
+Run this:
+
+python simulate_data.py
+
+STEP 3: Train Autoencoder (for anomaly detection)
+
+File: train_autoencoder.py
+
+import pandas as pd import numpy as np from tensorflow.keras.models import Model from tensorflow.keras.layers import Input, Dense from sklearn.preprocessing import MinMaxScaler import tensorflow as tf
+
+Load & normalize data
+
+df = pd.read_csv("normal_data.csv") scaler = MinMaxScaler() X = scaler.fit_transform(df)
+
+Build Autoencoder
+
+input_layer = Input(shape=(3,)) encoded = Dense(4, activation='relu')(input_layer) bottleneck = Dense(2, activation='relu')(encoded) decoded = Dense(4, activation='relu')(bottleneck) output_layer = Dense(3, activation='sigmoid')(decoded)
+
+autoencoder = Model(inputs=input_layer, outputs=output_layer) autoencoder.compile(optimizer='adam', loss='mse')
+
+Train
+
+autoencoder.fit(X, X, epochs=100, batch_size=32, shuffle=True, verbose=1)
+
+Save scaler and model
+
+np.save("scaler.npy", scaler.data_max_) autoencoder.save("cattle_model.h5")
+
+Convert to TFLite
+
+converter = tf.lite.TFLiteConverter.from_keras_model(autoencoder) tflite_model = converter.convert() with open("cattle_model.tflite", "wb") as f: f.write(tflite_model)
+
+print("Saved cattle_model.tflite")
+
+Run it:
+
+python train_autoencoder.py
+
+This will generate:
+
+cattle_model.tflite ← ready to copy to backend/app/model
+
+scaler.npy ← to be reused if needed for preprocessing
+
+
+STEP 4: Copy to Backend
+
+Take cattle_model.tflite and move it into:
+
+backend/app/model/cattle_model.tflite
+
+Done! Your Flask backend now has a working edge-AI anomaly detection model, trained on simulated healthy data.
+
+Next: Phase 4 — Data Simulator Engine (simulate live vitals from multiple animals). Just reply: Start Phase 4. I’ll give you the code for real-time sensor data emulation.
+
