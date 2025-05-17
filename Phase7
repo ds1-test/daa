@@ -1,0 +1,302 @@
+Great! Phase 7: Mobile App for Farmers — Offline-Capable with Cattle Search & GPS
+
+
+---
+
+Goal:
+
+Build a React Native mobile app that:
+
+Works offline (local SQLite storage)
+
+Shows cattle health data & location
+
+Allows farmers to search cattle by ID
+
+Shows cattle location on map
+
+Syncs with backend when online (optional)
+
+
+
+---
+
+Step-by-step guide
+
+
+---
+
+Step 1: Setup React Native Environment on Windows
+
+1. Install Node.js (if not already)
+
+
+2. Install Expo CLI (easy React Native dev):
+
+
+
+npm install -g expo-cli
+
+3. Initialize new Expo app:
+
+
+
+expo init CattleGuardMobile
+
+Choose blank (TypeScript or JavaScript) template (JS recommended if unfamiliar).
+
+4. Navigate to app folder:
+
+
+
+cd CattleGuardMobile
+
+
+---
+
+Step 2: Install required dependencies
+
+expo install react-native-sqlite-storage
+expo install react-native-maps
+expo install expo-location
+npm install @react-navigation/native @react-navigation/stack
+expo install react-native-gesture-handler react-native-reanimated react-native-screens react-native-safe-area-context @react-native-community/masked-view
+
+
+---
+
+Step 3: Setup SQLite for offline storage
+
+Create database.js in root:
+
+import * as SQLite from 'react-native-sqlite-storage';
+
+const db = SQLite.openDatabase({ name: 'cattleguard.db', location: 'default' });
+
+export const initDB = () => {
+  db.transaction(tx => {
+    tx.executeSql(
+      `CREATE TABLE IF NOT EXISTS cattle (
+        id TEXT PRIMARY KEY NOT NULL,
+        temperature REAL,
+        heart_rate REAL,
+        activity REAL,
+        lat REAL,
+        lon REAL,
+        status TEXT,
+        last_updated TEXT
+      );`
+    );
+  });
+};
+
+export const insertOrUpdateCattle = (cattle) => {
+  const { id, temperature, heart_rate, activity, lat, lon, status, last_updated } = cattle;
+  db.transaction(tx => {
+    tx.executeSql(
+      `INSERT OR REPLACE INTO cattle (id, temperature, heart_rate, activity, lat, lon, status, last_updated) VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
+      [id, temperature, heart_rate, activity, lat, lon, status, last_updated]
+    );
+  });
+};
+
+export const fetchAllCattle = (callback) => {
+  db.transaction(tx => {
+    tx.executeSql(
+      `SELECT * FROM cattle;`,
+      [],
+      (_, { rows }) => {
+        let result = [];
+        for (let i = 0; i < rows.length; i++) {
+          result.push(rows.item(i));
+        }
+        callback(result);
+      }
+    );
+  });
+};
+
+export const searchCattleById = (searchId, callback) => {
+  db.transaction(tx => {
+    tx.executeSql(
+      `SELECT * FROM cattle WHERE id LIKE ?;`,
+      [`%${searchId}%`],
+      (_, { rows }) => {
+        let result = [];
+        for (let i = 0; i < rows.length; i++) {
+          result.push(rows.item(i));
+        }
+        callback(result);
+      }
+    );
+  });
+};
+
+export default db;
+
+
+---
+
+Step 4: Fetch Data & Sync from Backend (optional but recommended when online)
+
+Create a function to fetch cattle data from backend API (similar to web dashboard API):
+
+const API_BASE = "http://your-backend-ip:5000";
+
+export const fetchCattleFromAPI = async () => {
+  try {
+    const response = await fetch(`${API_BASE}/api/latest-data`);
+    if (!response.ok) throw new Error("Network response not ok");
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error(error);
+    return [];
+  }
+};
+
+
+---
+
+Step 5: Main App.js with offline storage, search & map
+
+Here’s a simplified example:
+
+import React, { useEffect, useState } from "react";
+import { View, Text, TextInput, FlatList, StyleSheet, TouchableOpacity } from "react-native";
+import MapView, { Marker } from "react-native-maps";
+import { initDB, insertOrUpdateCattle, fetchAllCattle, searchCattleById } from "./database";
+import { fetchCattleFromAPI } from "./api";
+
+export default function App() {
+  const [cattleList, setCattleList] = useState([]);
+  const [searchText, setSearchText] = useState("");
+
+  useEffect(() => {
+    initDB();
+    loadLocalData();
+
+    // Optional: fetch from API and sync local DB
+    fetchCattleFromAPI().then((data) => {
+      data.forEach(insertOrUpdateCattle);
+      loadLocalData();
+    });
+  }, []);
+
+  const loadLocalData = () => {
+    fetchAllCattle(setCattleList);
+  };
+
+  const onSearch = (text) => {
+    setSearchText(text);
+    if (text.length > 0) {
+      searchCattleById(text, setCattleList);
+    } else {
+      loadLocalData();
+    }
+  };
+
+  const renderItem = ({ item }) => (
+    <TouchableOpacity style={styles.card}>
+      <Text style={styles.title}>{item.id}</Text>
+      <Text>Temp: {item.temperature} °C</Text>
+      <Text>HR: {item.heart_rate} bpm</Text>
+      <Text>Activity: {item.activity}</Text>
+      <Text>Status: {item.status}</Text>
+      <Text>Last updated: {item.last_updated}</Text>
+    </TouchableOpacity>
+  );
+
+  return (
+    <View style={{ flex: 1 }}>
+      <TextInput
+        style={styles.searchBox}
+        placeholder="Search cattle by ID"
+        value={searchText}
+        onChangeText={onSearch}
+      />
+      <MapView
+        style={{ flex: 1 }}
+        initialRegion={{
+          latitude: 12.9716,
+          longitude: 77.5946,
+          latitudeDelta: 0.02,
+          longitudeDelta: 0.02,
+        }}
+      >
+        {cattleList.map((c) => (
+          <Marker
+            key={c.id}
+            coordinate={{ latitude: c.lat, longitude: c.lon }}
+            title={c.id}
+            description={`Status: ${c.status}`}
+            pinColor={c.status === "anomaly" ? "red" : "green"}
+          />
+        ))}
+      </MapView>
+      <FlatList
+        data={cattleList}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+        style={{ maxHeight: 200 }}
+      />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  searchBox: {
+    height: 40,
+    margin: 8,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+  },
+  card: {
+    backgroundColor: "#f0f0f0",
+    padding: 10,
+    marginHorizontal: 8,
+    marginVertical: 4,
+    borderRadius: 6,
+  },
+  title: {
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+});
+
+
+---
+
+Step 6: Run Your Mobile App
+
+In the terminal inside CattleGuardMobile/:
+
+expo start
+
+Use Expo Go app on your phone (Android/iOS) to scan QR code and run the app.
+
+
+---
+
+Optional Advanced Features:
+
+Use background sync to update data when online.
+
+Implement local notifications for anomalies.
+
+Add login/auth if needed.
+
+Use BLE or other local mesh tech for device communication.
+
+
+
+---
+
+That’s a complete mobile app with offline support, search, map, and sync.
+
+
+---
+
+Ready for next step? (Deployment help, notifications, or advanced AI?) Just ask!
+
