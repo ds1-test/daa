@@ -1,0 +1,78 @@
+Great! Let’s begin Phase 4: Simulated Livestock Data Generator
+
+Goal: Simulate real-time sensor data (temperature, heart rate, activity level, GPS) for multiple cattle and send it to your Flask API continuously.
+
+This simulates a real IoT wearable + edge AI device.
+
+Step-by-Step Instructions:
+
+Step 1: Folder & File Setup
+
+In your data-simulator/ directory, create:
+
+data-simulator/ ├── cattle_ids.txt              ← List of cattle IDs ├── simulator.py                ← Sends simulated data every few seconds ├── config.py                   ← Contains API URL, GPS area, etc. ├── requirements.txt
+
+Step 2: cattle_ids.txt
+
+Paste IDs like:
+
+COW001 COW002 COW003
+
+Step 3: config.py
+
+api_url = "http://localhost:5000/api/send-data"  # or your Docker IP if running in container
+
+location_center = { "lat": 12.9716,   # change to your area if needed "lon": 77.5946 }
+
+Step 4: simulator.py
+
+import requests import time import random from datetime import datetime from config import api_url, location_center
+
+def generate_health_data(): temp = round(random.gauss(38.5, 0.3), 2) hr = round(random.gauss(70, 5), 1) act = round(random.gauss(0.7, 0.1), 2) return temp, hr, act
+
+def random_gps_jitter(): return random.uniform(-0.001, 0.001)
+
+with open("cattle_ids.txt") as f: cattle_ids = [line.strip() for line in f]
+
+while True: for cid in cattle_ids: temp, hr, act = generate_health_data() lat = location_center["lat"] + random_gps_jitter() lon = location_center["lon"] + random_gps_jitter()
+
+payload = {
+        "cattle_id": cid,
+        "temperature": temp,
+        "heart_rate": hr,
+        "activity": act,
+        "lat": lat,
+        "lon": lon
+    }
+
+    try:
+        r = requests.post(api_url, json=payload)
+        print(f"[{datetime.now()}] {cid}: {r.json()['status']} | Temp: {temp} HR: {hr} Act: {act}")
+    except Exception as e:
+        print(f"Error: {e}")
+
+time.sleep(5)  # Send every 5 seconds per round
+
+Step 5: Install dependencies
+
+pip install requests
+
+Add this to requirements.txt:
+
+requests
+
+Step 6: Run it
+
+cd data-simulator python simulator.py
+
+You should see logs like:
+
+[2025-05-16 12:33:21] COW001: healthy | Temp: 38.6 HR: 72 Act: 0.69
+[2025-05-16 12:33:21] COW002: anomaly | Temp: 39.2 HR: 88 Act: 0.21
+
+The Flask backend is now receiving and classifying real-time simulated livestock data.
+
+Next: Phase 5 — Dashboard (React web dashboard to view status & maps)
+
+If you're ready, reply: Start Phase 5. This will give you a beautiful real-time dashboard with cattle alerts and map integration.
+
