@@ -1,0 +1,106 @@
+Great! Let's begin with Phase 1: SETUP & ENVIRONMENT.
+
+PHASE 1: SETUP & ENVIRONMENT (Step-by-Step)
+
+We’ll install and configure everything needed to build and simulate your full CattleGuard system.
+
+STEP 1: Install Required Software
+
+A. VS Code (Main Editor)
+
+Download: https://code.visualstudio.com/
+
+Install the Python, Docker, and React Native Tools extensions
+
+
+B. Python 3.10 or higher
+
+Download: https://www.python.org/downloads/
+
+During installation: check “Add Python to PATH”
+
+
+To verify: bash python --version pip --version
+
+C. Node.js (for React and React Native)
+
+Download: https://nodejs.org/
+
+Verify: bash node -v npm -v
+
+
+D. Git (Version Control)
+
+Download: https://git-scm.com/
+
+Used to clone repositories and manage versions
+
+
+E. Docker Desktop
+
+Download: https://www.docker.com/products/docker-desktop
+
+Enable WSL 2 backend during setup (required on Windows)
+
+Verify after install: bash docker --version
+
+
+F. Android Studio (for mobile app)
+
+Download: https://developer.android.com/studio
+
+During installation:
+
+Install Android SDK
+
+Enable USB debugging on your phone
+
+Create a virtual Android device (Pixel 4 recommended)
+
+
+Add environment variables:
+
+ANDROID_HOME
+
+Add these to PATH:
+
+%ANDROID_HOME%\emulator
+
+%ANDROID_HOME%\tools
+
+%ANDROID_HOME%\platform-tools
+
+
+
+
+G. Postman (for API testing)
+
+Optional but helpful: https://www.postman.com/
+
+
+H. Python virtual environment (for clean backend setup) bash pip install virtualenv
+
+STEP 2: Create Project Folder Structure
+
+Choose a folder location and structure it like this:
+
+CattleGuard/ ├── ai-models/            ← For training + exporting AI models ├── backend/              ← Flask API + SQLite DB ├── data-simulator/       ← Sensor simulation engine ├── frontend-dashboard/   ← React web dashboard ├── mobile-app/           ← React Native mobile app ├── docker/               ← Docker configs & compose └── README.md             ← Optional documentation
+
+STEP 3: Setup Python Virtual Environment
+
+In /backend folder:
+
+bash cd backend python -m venv venv venv\Scripts\activate   # Windows
+
+Install initial dependencies:
+
+bash pip install flask numpy pandas scikit-learn joblib tensorflow tensorflow-lite twilio
+
+Create requirements.txt:
+
+bash pip freeze > requirements.txt
+
+You're now fully set up.
+
+Shall I proceed to Phase 2: Backend (Flask API + SQLite + Docker)? I’ll guide you to build the entire API with real health + anomaly logic. Just say: Start Phase 2.
+
