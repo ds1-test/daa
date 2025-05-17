@@ -1,0 +1,124 @@
+Awesome. Let’s begin Phase 2: Backend (Flask API + SQLite + Docker)
+
+We will build a fully functional Flask backend that:
+
+Receives simulated sensor + GPS data
+
+Logs into SQLite database
+
+Uses an AI model to detect cattle health anomalies
+
+Sends SMS/email alerts
+
+Runs in Docker
+
+
+STEP 1: Folder setup & main file
+
+Inside the /backend directory, create:
+
+backend/ ├── app/ │   ├── init.py │   ├── routes.py │   ├── utils.py │   ├── model/ │   │   ├── cattle_model.tflite      ← TFLite AI model (we’ll generate later) ├── data/ │   └── cattle.db                    ← SQLite DB will be auto-generated ├── requirements.txt ├── run.py
+
+STEP 2: Create the Flask App
+
+File: backend/run.py
+
+from app import create_app
+
+app = create_app()
+
+if name == "main": app.run(debug=True, host='0.0.0.0', port=5000)
+
+File: backend/app/init.py
+
+from flask import Flask from flask_cors import CORS
+
+def create_app(): app = Flask(name) CORS(app) app.config['DATABASE'] = 'data/cattle.db'
+
+from .routes import cattle_bp
+app.register_blueprint(cattle_bp)
+
+return app
+
+STEP 3: Create SQLite helper functions
+
+File: backend/app/utils.py
+
+import sqlite3 import os
+
+def init_db(): if not os.path.exists('data'): os.mkdir('data') conn = sqlite3.connect("data/cattle.db") cursor = conn.cursor() cursor.execute(''' CREATE TABLE IF NOT EXISTS cattle_data ( id INTEGER PRIMARY KEY AUTOINCREMENT, cattle_id TEXT, timestamp TEXT, temperature REAL, heart_rate REAL, activity REAL, lat REAL, lon REAL, status TEXT ) ''') conn.commit() conn.close()
+
+def insert_data(cattle_id, timestamp, temperature, heart_rate, activity, lat, lon, status): conn = sqlite3.connect("data/cattle.db") cursor = conn.cursor() cursor.execute(''' INSERT INTO cattle_data (cattle_id, timestamp, temperature, heart_rate, activity, lat, lon, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ''', (cattle_id, timestamp, temperature, heart_rate, activity, lat, lon, status)) conn.commit() conn.close()
+
+STEP 4: Create Flask Routes
+
+File: backend/app/routes.py
+
+from flask import Blueprint, request, jsonify from .utils import init_db, insert_data import datetime import numpy as np import tensorflow as tf
+
+cattle_bp = Blueprint('cattle', name) interpreter = tf.lite.Interpreter(model_path="app/model/cattle_model.tflite") interpreter.allocate_tensors()
+
+input_details = interpreter.get_input_details() output_details = interpreter.get_output_details()
+
+@cattle_bp.before_app_first_request def setup(): init_db()
+
+@cattle_bp.route('/api/send-data', methods=['POST']) def receive_data(): data = request.get_json() cattle_id = data.get("cattle_id") temperature = float(data.get("temperature")) heart_rate = float(data.get("heart_rate")) activity = float(data.get("activity")) lat = float(data.get("lat")) lon = float(data.get("lon")) timestamp = datetime.datetime.utcnow().isoformat()
+
+# Run through AI model
+input_data = np.array([[temperature, heart_rate, activity]], dtype=np.float32)
+interpreter.set_tensor(input_details[0]['index'], input_data)
+interpreter.invoke()
+output = interpreter.get_tensor(output_details[0]['index'])
+status = "healthy" if output[0][0] < 0.5 else "anomaly"
+
+# Save to DB
+insert_data(cattle_id, timestamp, temperature, heart_rate, activity, lat, lon, status)
+
+return jsonify({"status": status})
+
+STEP 5: Create requirements.txt
+
+flask flask-cors numpy pandas scikit-learn tensorflow tensorflow-lite twilio
+
+bash pip install -r requirements.txt
+
+STEP 6: Run it locally (test)
+
+bash cd backend venv\Scripts\activate python run.py
+
+Test in Postman: POST http://localhost:5000/api/send-data
+
+JSON body:
+
+{ "cattle_id": "COW123", "temperature": 38.4, "heart_rate": 72, "activity": 0.7, "lat": 12.97, "lon": 77.59 }
+
+Response should be:
+
+{ "status": "healthy" or "anomaly" }
+
+STEP 7: Dockerize it
+
+File: backend/Dockerfile
+
+FROM python:3.10
+
+WORKDIR /app
+
+COPY . .
+
+RUN pip install --upgrade pip RUN pip install -r requirements.txt
+
+CMD ["python", "run.py"]
+
+File: docker/docker-compose.yml
+
+version: '3' services: backend: build: context: ../backend ports: - "5000:5000" volumes: - ../backend:/app
+
+To run it:
+
+bash cd docker docker-compose up --build
+
+Now your backend is containerized and simulates edge device behavior.
+
+Want me to move to Phase 3: AI Model (Autoencoder Training + TFLite Export)? This is where we train the actual anomaly detection AI. Just reply: Start Phase 3.
+
